@@ -20,10 +20,11 @@ import time
 from .llm import _get_llm_class, BaseLLM
 from .embedding_model import _get_embedding_model_class, BaseEmbeddingModel
 from .embedding_store import EmbeddingStore
+from .faiss_embedding_store import FaissEmbeddingStore
 from .information_extraction import OpenIE
 from .information_extraction.openie_vllm_offline import VLLMOfflineOpenIE
 from .information_extraction.openie_transformers_offline import TransformersOfflineOpenIE
-from .evaluation.retrieval_eval import RetrievalRecall
+from .evaluation.retrieval_eval import RetrievalRecall, RetrievalPrecision, RetrievalMRR, RetrievalNDCG
 from .evaluation.qa_eval import QAExactMatch, QAF1Score
 from .prompts.linking import get_query_instruction
 from .prompts.prompt_template_manager import PromptTemplateManager
@@ -139,19 +140,29 @@ class HippoRAG:
             self.embedding_model: BaseEmbeddingModel = _get_embedding_model_class(
                 embedding_model_name=self.global_config.embedding_model_name)(global_config=self.global_config,
                                                                               embedding_model_name=self.global_config.embedding_model_name)
-        self.chunk_embedding_store = EmbeddingStore(self.embedding_model,
+
+        self.chunk_embedding_store = FaissEmbeddingStore(self.embedding_model,
                                                     os.path.join(self.working_dir, "chunk_embeddings"),
-                                                    self.global_config.embedding_batch_size, 'chunk')
-        self.entity_embedding_store = EmbeddingStore(self.embedding_model,
+                                                    self.global_config.embedding_batch_size, 'chunk_faiss')
+        self.entity_embedding_store = FaissEmbeddingStore(self.embedding_model,
                                                      os.path.join(self.working_dir, "entity_embeddings"),
-                                                     self.global_config.embedding_batch_size, 'entity')
-        self.fact_embedding_store = EmbeddingStore(self.embedding_model,
+                                                     self.global_config.embedding_batch_size, 'entity_faiss')
+        self.fact_embedding_store = FaissEmbeddingStore(self.embedding_model,
                                                    os.path.join(self.working_dir, "fact_embeddings"),
-                                                   self.global_config.embedding_batch_size, 'fact')
+                                                   self.global_config.embedding_batch_size, 'fact_faiss')
+        # self.chunk_embedding_store = EmbeddingStore(self.embedding_model,
+        #                                             os.path.join(self.working_dir, "chunk_embeddings"),
+        #                                             self.global_config.embedding_batch_size, 'chunk')
+        # self.entity_embedding_store = EmbeddingStore(self.embedding_model,
+        #                                              os.path.join(self.working_dir, "entity_embeddings"),
+        #                                              self.global_config.embedding_batch_size, 'entity')
+        # self.fact_embedding_store = EmbeddingStore(self.embedding_model,
+        #                                            os.path.join(self.working_dir, "fact_embeddings"),
+        #                                            self.global_config.embedding_batch_size, 'fact')
 
         self.prompt_template_manager = PromptTemplateManager(role_mapping={"system": "system", "user": "user", "assistant": "assistant"})
 
-        self.openie_results_path = os.path.join(self.global_config.save_dir,f'openie_results_ner_{self.global_config.llm_name.replace("/", "_")}.json')
+        self.openie_results_path = os.path.join(self.global_config.save_dir, f'openie_results_ner_{self.global_config.llm_name.replace("/", "_")}.json')
 
         self.rerank_filter = DSPyFilter(self)
 
@@ -261,7 +272,6 @@ class HippoRAG:
 
         logger.info(f"Encoding Facts")
         self.fact_embedding_store.insert_strings([str(fact) for fact in facts])
-
         logger.info(f"Constructing Graph")
 
         self.node_to_node_stats = {}
@@ -416,7 +426,7 @@ class HippoRAG:
 
             if len(top_k_facts) == 0:
                 logger.info('No facts found after reranking, return DPR results')
-                sorted_doc_ids, sorted_doc_scores = self.dense_passage_retrieval(query)
+                _, sorted_doc_ids, sorted_doc_scores = self.dense_passage_retrieval(query)
             else:
                 sorted_doc_ids, sorted_doc_scores = self.graph_search_with_fact_entities(query=query,
                                                                                          link_top_k=self.global_config.linking_top_k,
@@ -424,7 +434,6 @@ class HippoRAG:
                                                                                          top_k_facts=top_k_facts,
                                                                                          top_k_fact_indices=top_k_fact_indices,
                                                                                          passage_node_weight=self.global_config.passage_node_weight)
-
             top_k_docs = [self.chunk_embedding_store.get_row(self.passage_node_keys[idx])["content"] for idx in sorted_doc_ids[:num_to_retrieve]]
 
             retrieval_results.append(QuerySolution(question=query, docs=top_k_docs, doc_scores=sorted_doc_scores[:num_to_retrieve]))
@@ -842,16 +851,21 @@ class HippoRAG:
 
         logger.info(f"Performing KNN retrieval for each phrase nodes ({len(entity_node_keys)}).")
 
-        entity_embs = self.entity_embedding_store.get_embeddings(entity_node_keys)
+        # TODO
+        # entity_embs = self.entity_embedding_store.get_embeddings(entity_node_keys)
 
         # Here we build synonymy edges only between newly inserted phrase nodes and all phrase nodes in the storage to reduce cost for incremental graph updates
-        query_node_key2knn_node_keys = retrieve_knn(query_ids=entity_node_keys,
-                                                    key_ids=entity_node_keys,
-                                                    query_vecs=entity_embs,
-                                                    key_vecs=entity_embs,
-                                                    k=self.global_config.synonymy_edge_topk,
-                                                    query_batch_size=self.global_config.synonymy_edge_query_batch_size,
-                                                    key_batch_size=self.global_config.synonymy_edge_key_batch_size)
+        # query_node_key2knn_node_keys = retrieve_knn(query_ids=entity_node_keys,
+        #                                             key_ids=entity_node_keys,
+        #                                             query_vecs=entity_embs,
+        #                                             key_vecs=entity_embs,
+        #                                             k=self.global_config.synonymy_edge_topk,
+        #                                             query_batch_size=self.global_config.synonymy_edge_query_batch_size,
+        #                                             key_batch_size=self.global_config.synonymy_edge_key_batch_size)
+
+        # breakpoint()
+
+        query_node_key2knn_node_keys = self.entity_embedding_store.search_self()
 
         num_synonym_triple = 0
         synonym_candidates = []  # [(node key, [(synonym node key, corresponding score), ...]), ...]
@@ -1202,10 +1216,11 @@ class HippoRAG:
             self.passage_node_idxs = []
 
         logger.info("Loading embeddings.")
-        self.entity_embeddings = np.array(self.entity_embedding_store.get_embeddings(self.entity_node_keys))
-        self.passage_embeddings = np.array(self.chunk_embedding_store.get_embeddings(self.passage_node_keys))
+        # TODO
+        # self.entity_embeddings = np.array(self.entity_embedding_store.get_embeddings(self.entity_node_keys))
+        # self.passage_embeddings = np.array(self.chunk_embedding_store.get_embeddings(self.passage_node_keys))
 
-        self.fact_embeddings = np.array(self.fact_embedding_store.get_embeddings(self.fact_node_keys))
+        # self.fact_embeddings = np.array(self.fact_embedding_store.get_embeddings(self.fact_node_keys))
 
         all_openie_info, chunk_keys_to_process = self.load_existing_openie([])
 
@@ -1314,14 +1329,18 @@ class HippoRAG:
                                                                 norm=True)
 
         # Check if there are any facts
-        if len(self.fact_embeddings) == 0:
-            logger.warning("No facts available for scoring. Returning empty array.")
-            return np.array([])
+        # if len(self.fact_embeddings) == 0:
+        #     logger.warning("No facts available for scoring. Returning empty array.")
+        #     return np.array([])
             
+        # try:
+        #     query_fact_scores = np.dot(self.fact_embeddings, query_embedding.T) # shape: (#facts, )
+        #     query_fact_scores = np.squeeze(query_fact_scores) if query_fact_scores.ndim == 2 else query_fact_scores
+        #     query_fact_scores = min_max_normalize(query_fact_scores)
         try:
-            query_fact_scores = np.dot(self.fact_embeddings, query_embedding.T) # shape: (#facts, )
-            query_fact_scores = np.squeeze(query_fact_scores) if query_fact_scores.ndim == 2 else query_fact_scores
-            query_fact_scores = min_max_normalize(query_fact_scores)
+            results = self.fact_embedding_store.search([''], query_embedding.reshape((1, -1)), k=1000)
+            _, topk_scores = results['']
+            query_fact_scores = min_max_normalize(topk_scores)
             return query_fact_scores
         except Exception as e:
             logger.error(f"Error computing fact scores: {str(e)}")
@@ -1354,15 +1373,24 @@ class HippoRAG:
         query_embedding = self.query_to_embedding['passage'].get(query, None)
         if query_embedding is None:
             query_embedding = self.embedding_model.batch_encode(query,
+                                                                encoding_type='query',
                                                                 instruction=get_query_instruction('query_to_passage'),
                                                                 norm=True)
-        query_doc_scores = np.dot(self.passage_embeddings, query_embedding.T)
-        query_doc_scores = np.squeeze(query_doc_scores) if query_doc_scores.ndim == 2 else query_doc_scores
-        query_doc_scores = min_max_normalize(query_doc_scores)
+        breakpoint()
+        # query_doc_scores = np.dot(self.passage_embeddings, query_embedding.T)
+        # query_doc_scores = np.squeeze(query_doc_scores) if query_doc_scores.ndim == 2 else query_doc_scores
+        # query_doc_scores = min_max_normalize(query_doc_scores)
 
-        sorted_doc_ids = np.argsort(query_doc_scores)[::-1]
-        sorted_doc_scores = query_doc_scores[sorted_doc_ids.tolist()]
-        return sorted_doc_ids, sorted_doc_scores
+        # sorted_doc_ids = np.argsort(query_doc_scores)[::-1]
+        # sorted_doc_scores = query_doc_scores[sorted_doc_ids.tolist()]
+        # return sorted_doc_ids, sorted_doc_scores
+
+
+        results = self.chunk_embedding_store.search([''], query_embedding.reshape((1, -1)), k=1000)
+        if not results:
+            return np.array([]), np.array([]), np.array([])
+        
+        return results['']
 
 
     def get_top_k_weights(self,
@@ -1486,7 +1514,7 @@ class HippoRAG:
                                                                            linking_score_map)  # at this stage, the length of linking_scope_map is determined by link_top_k
 
         #Get passage scores according to chosen dense retrieval model
-        dpr_sorted_doc_ids, dpr_sorted_doc_scores = self.dense_passage_retrieval(query)
+        _, dpr_sorted_doc_ids, dpr_sorted_doc_scores = self.dense_passage_retrieval(query)
         normalized_dpr_sorted_scores = min_max_normalize(dpr_sorted_doc_scores)
 
         for i, dpr_sorted_doc_id in enumerate(dpr_sorted_doc_ids.tolist()):

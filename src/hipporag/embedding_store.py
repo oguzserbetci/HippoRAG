@@ -85,7 +85,7 @@ class EmbeddingStore:
         # Prepare the texts to encode from the "content" field.
         texts_to_encode = [nodes_dict[hash_id]["content"] for hash_id in missing_ids]
 
-        missing_embeddings = self.embedding_model.batch_encode(texts_to_encode)
+        missing_embeddings = self.embedding_model.batch_encode(texts_to_encode, encoding_type='document')
 
         self._upsert(missing_ids, texts_to_encode, missing_embeddings)
 
