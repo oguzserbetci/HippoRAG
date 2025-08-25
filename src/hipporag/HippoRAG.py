@@ -138,13 +138,16 @@ class HippoRAG:
                                                                               embedding_model_name=self.global_config.embedding_model_name)
         self.chunk_embedding_store = EmbeddingStore(self.embedding_model,
                                                     os.path.join(self.working_dir, "chunk_embeddings"),
-                                                    self.global_config.embedding_batch_size, 'chunk')
+                                                    self.global_config.embedding_batch_size, 'chunk',
+                                                    self._get_vector_db_config())
         self.entity_embedding_store = EmbeddingStore(self.embedding_model,
                                                      os.path.join(self.working_dir, "entity_embeddings"),
-                                                     self.global_config.embedding_batch_size, 'entity')
+                                                     self.global_config.embedding_batch_size, 'entity',
+                                                     self._get_vector_db_config())
         self.fact_embedding_store = EmbeddingStore(self.embedding_model,
                                                    os.path.join(self.working_dir, "fact_embeddings"),
-                                                   self.global_config.embedding_batch_size, 'fact')
+                                                   self.global_config.embedding_batch_size, 'fact',
+                                                   self._get_vector_db_config())
 
         self.prompt_template_manager = PromptTemplateManager(role_mapping={"system": "system", "user": "user", "assistant": "assistant"})
 
@@ -160,6 +163,13 @@ class HippoRAG:
 
         self.ent_node_to_chunk_ids = None
 
+    def _get_vector_db_config(self):
+        """Get vector database configuration from global config."""
+        return {
+            "backend": self.global_config.vector_db_backend,
+            "index_type": self.global_config.vector_db_index_type,
+            "nlist": self.global_config.vector_db_nlist
+        }
 
     def initialize_graph(self):
         """

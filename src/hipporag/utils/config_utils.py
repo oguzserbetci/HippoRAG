@@ -143,6 +143,20 @@ class BaseConfig:
     )
     
     
+    # Vector database specific attributes
+    vector_db_backend: Literal["memory", "faiss"] = field(
+        default="memory",
+        metadata={"help": "Vector database backend to use for storing and searching embeddings."}
+    )
+    vector_db_index_type: str = field(
+        default="Flat",
+        metadata={"help": "Type of vector index for FAISS backend ('Flat', 'IVFFlat', 'HNSW')."}
+    )
+    vector_db_nlist: int = field(
+        default=100,
+        metadata={"help": "Number of clusters for IVF indices in FAISS."}
+    )
+    
     
     # Graph construction specific attributes
     synonymy_edge_topk: int = field(
