@@ -1290,6 +1290,7 @@ class HippoRAG:
             # get all query embeddings
             logger.info(f"Encoding {len(all_query_strings)} queries for query_to_fact.")
             query_embeddings_for_triple = self.embedding_model.batch_encode(all_query_strings,
+                                                                            encoding_type='query',
                                                                             instruction=get_query_instruction('query_to_fact'),
                                                                             norm=True)
             for query, embedding in zip(all_query_strings, query_embeddings_for_triple):
@@ -1297,6 +1298,7 @@ class HippoRAG:
 
             logger.info(f"Encoding {len(all_query_strings)} queries for query_to_passage.")
             query_embeddings_for_passage = self.embedding_model.batch_encode(all_query_strings,
+                                                                            encoding_type='query',
                                                                              instruction=get_query_instruction('query_to_passage'),
                                                                              norm=True)
             for query, embedding in zip(all_query_strings, query_embeddings_for_passage):
@@ -1325,6 +1327,7 @@ class HippoRAG:
         query_embedding = self.query_to_embedding['triple'].get(query, None)
         if query_embedding is None:
             query_embedding = self.embedding_model.batch_encode(query,
+                                                                encoding_type='query',
                                                                 instruction=get_query_instruction('query_to_fact'),
                                                                 norm=True)
 

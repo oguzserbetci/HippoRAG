@@ -1,3 +1,4 @@
+from .SentenceTransformers import SentenceTransformersEmbeddingModel
 from .Contriever import ContrieverModel
 from .base import EmbeddingConfig, BaseEmbeddingModel
 from .GritLM import GritLMEmbeddingModel
@@ -27,4 +28,5 @@ def _get_embedding_model_class(embedding_model_name: str = "nvidia/NV-Embed-v2")
         return TransformersEmbeddingModel
     elif embedding_model_name.startswith("VLLM/"):
         return VLLMEmbeddingModel
-    assert False, f"Unknown embedding model name: {embedding_model_name}"
+    else:
+        return SentenceTransformersEmbeddingModel
