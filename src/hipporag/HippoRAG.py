@@ -405,6 +405,9 @@ class HippoRAG:
 
         if gold_docs is not None:
             retrieval_recall_evaluator = RetrievalRecall(global_config=self.global_config)
+            retrieval_precision_evaluator = RetrievalPrecision(global_config=self.global_config)
+            retrieval_mrr_evaluator = RetrievalMRR(global_config=self.global_config)
+            retrieval_ndcg_evaluator = RetrievalNDCG(global_config=self.global_config)
 
         if not self.ready_to_retrieve:
             self.prepare_retrieval_objects()
@@ -446,11 +449,19 @@ class HippoRAG:
 
         # Evaluate retrieval
         if gold_docs is not None:
-            k_list = [1, 2, 5, 10, 20, 30, 50, 100, 150, 200]
+            k_list = [1, 2, 5, 10, 20, 30, 50, 100, 150, 200, 1000]
+            overall_retrieval_results = {}
             overall_retrieval_result, example_retrieval_results = retrieval_recall_evaluator.calculate_metric_scores(gold_docs=gold_docs, retrieved_docs=[retrieval_result.docs for retrieval_result in retrieval_results], k_list=k_list)
-            logger.info(f"Evaluation results for retrieval: {overall_retrieval_result}")
+            overall_retrieval_results.update(overall_retrieval_result)
+            overall_retrieval_result, example_retrieval_results = retrieval_precision_evaluator.calculate_metric_scores(gold_docs=gold_docs, retrieved_docs=[retrieval_result.docs for retrieval_result in retrieval_results], k_list=k_list)
+            overall_retrieval_results.update(overall_retrieval_result)
+            overall_retrieval_result, example_retrieval_results = retrieval_mrr_evaluator.calculate_metric_scores(gold_docs=gold_docs, retrieved_docs=[retrieval_result.docs for retrieval_result in retrieval_results], k_list=k_list)
+            overall_retrieval_results.update(overall_retrieval_result)
+            overall_retrieval_result, example_retrieval_results = retrieval_ndcg_evaluator.calculate_metric_scores(gold_docs=gold_docs, retrieved_docs=[retrieval_result.docs for retrieval_result in retrieval_results], k_list=k_list)
+            overall_retrieval_results.update(overall_retrieval_result)
+            logger.info(f"Evaluation results for retrieval: {overall_retrieval_results}")
 
-            return retrieval_results, overall_retrieval_result
+            return retrieval_results, overall_retrieval_results
         else:
             return retrieval_results
 
