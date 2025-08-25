@@ -858,7 +858,8 @@ class HippoRAG:
                                                     key_vecs=entity_embs,
                                                     k=self.global_config.synonymy_edge_topk,
                                                     query_batch_size=self.global_config.synonymy_edge_query_batch_size,
-                                                    key_batch_size=self.global_config.synonymy_edge_key_batch_size)
+                                                    key_batch_size=self.global_config.synonymy_edge_key_batch_size,
+                                                    vector_db=self.entity_embedding_store.vector_db)
 
         num_synonym_triple = 0
         synonym_candidates = []  # [(node key, [(synonym node key, corresponding score), ...]), ...]

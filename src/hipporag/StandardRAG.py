@@ -426,6 +426,27 @@ class StandardRAG:
             query_embedding = self.embedding_model.batch_encode(query,
                                                                 instruction=get_query_instruction('query_to_passage'),
                                                                 norm=True)
+        
+        # Use vector database if available
+        if hasattr(self.chunk_embedding_store, 'vector_db') and self.chunk_embedding_store.vector_db is not None:
+            try:
+                # Use vector database search
+                top_k_hash_ids, top_k_similarities = self.chunk_embedding_store.search_similar(
+                    query_embedding, k=len(self.passage_node_keys)
+                )
+                
+                # Convert hash IDs back to indices
+                sorted_doc_ids = np.array([self.chunk_embedding_store.hash_id_to_idx[hash_id] 
+                                          for hash_id in top_k_hash_ids])
+                sorted_doc_scores = min_max_normalize(np.array(top_k_similarities))
+                
+                return sorted_doc_ids, sorted_doc_scores
+                
+            except Exception as e:
+                # Fallback to original method
+                print(f"Vector DB search failed, falling back to matrix multiplication: {e}")
+        
+        # Original matrix multiplication approach
         query_doc_scores = np.dot(self.passage_embeddings, query_embedding.T)
         query_doc_scores = np.squeeze(query_doc_scores) if query_doc_scores.ndim == 2 else query_doc_scores
         query_doc_scores = min_max_normalize(query_doc_scores)

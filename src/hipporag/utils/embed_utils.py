@@ -1,21 +1,79 @@
-from typing import List
+from typing import List, Optional, Union
 import torch
 from tqdm import tqdm
+import numpy as np
 
 
 def retrieve_knn(query_ids: List[str], key_ids: List[str], query_vecs, key_vecs, k=2047, query_batch_size=1000,
-                 key_batch_size=10000):
+                 key_batch_size=10000, vector_db=None):
     """
     Retrieve the top-k nearest neighbors for each query id from the key ids.
+    
     Args:
-        query_ids:
-        key_ids:
-        k: top-k
-        query_batch_size:
-        key_batch_size:
-
+        query_ids: List of query identifiers
+        key_ids: List of key identifiers  
+        query_vecs: Query vectors (numpy array or torch tensor)
+        key_vecs: Key vectors (numpy array or torch tensor)
+        k: top-k neighbors to retrieve
+        query_batch_size: Batch size for query processing
+        key_batch_size: Batch size for key processing  
+        vector_db: Optional vector database backend for efficient search
+        
     Returns:
+        dict: Mapping from query_id to (top_k_key_ids, similarities)
+    """
+    # If vector database is provided and contains the key vectors, use it
+    if vector_db is not None and hasattr(vector_db, 'search') and len(key_ids) > 0:
+        return _retrieve_knn_with_vector_db(query_ids, key_ids, query_vecs, key_vecs, k, vector_db)
+    
+    # Fallback to original matrix multiplication approach
+    return _retrieve_knn_original(query_ids, key_ids, query_vecs, key_vecs, k, query_batch_size, key_batch_size)
 
+
+def _retrieve_knn_with_vector_db(query_ids: List[str], key_ids: List[str], query_vecs, key_vecs, k: int, vector_db):
+    """Retrieve KNN using vector database backend."""
+    results = {}
+    
+    # Convert query vectors to numpy if needed
+    if torch.is_tensor(query_vecs):
+        query_vecs = query_vecs.cpu().numpy()
+    
+    if isinstance(query_vecs, list):
+        query_vecs = np.array(query_vecs)
+    
+    # Normalize query vectors
+    query_vecs = query_vecs / (np.linalg.norm(query_vecs, axis=1, keepdims=True) + 1e-10)
+    
+    # Search for each query
+    for i, query_id in enumerate(tqdm(query_ids, desc="Vector DB KNN Search")):
+        query_vec = query_vecs[i:i+1]
+        
+        try:
+            # Use vector database search
+            similarities, indices = vector_db.search(query_vec.astype(np.float32), k=min(k, len(key_ids)))
+            
+            if len(similarities) > 0 and len(similarities[0]) > 0:
+                # Convert indices to key IDs
+                top_k_key_ids = [key_ids[idx] for idx in indices[0] if idx < len(key_ids)]
+                top_k_similarities = similarities[0][:len(top_k_key_ids)]
+                
+                results[query_id] = (top_k_key_ids, top_k_similarities.tolist())
+            else:
+                results[query_id] = ([], [])
+                
+        except Exception as e:
+            # Fallback to original method for this query
+            print(f"Vector DB search failed for query {query_id}: {e}")
+            single_query_result = _retrieve_knn_original([query_id], key_ids, query_vecs[i:i+1], key_vecs, k, 1, 10000)
+            results.update(single_query_result)
+    
+    return results
+
+
+def _retrieve_knn_original(query_ids: List[str], key_ids: List[str], query_vecs, key_vecs, k=2047, query_batch_size=1000,
+                          key_batch_size=10000):
+    """
+    Original retrieve_knn implementation using matrix multiplication.
     """
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
