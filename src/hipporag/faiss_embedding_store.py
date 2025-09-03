@@ -157,8 +157,15 @@ class FaissEmbeddingStore(EmbeddingStore):
             query_hash_id = self.faiss_id_to_hash_id[idx]
             results[query_hash_id] = (topk_ids, topk_scores)
         return results
+    
+    def _normalize_vectors(self, vectors: np.ndarray) -> np.ndarray:
+        """Normalize vectors for cosine similarity."""
+        norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+        # Avoid division by zero
+        norms = np.where(norms == 0, 1, norms)
+        return vectors / norms
 
-    def search(self, query_ids, query_embeddings: np.ndarray, k: int = 5) -> Dict[str, Tuple[List[str], List[float]]]:
+    def search(self, query_ids=None, query_embeddings: np.ndarray=None, k: int = 5, query_batch_size=1000) -> Dict[str, Tuple[np.array, np.array, np.array]]:
         """
         Perform similarity search using FAISS
         
@@ -171,24 +178,35 @@ class FaissEmbeddingStore(EmbeddingStore):
         """
         if self.faiss_index is None or self.faiss_index.ntotal == 0:
             return {}
-            
+
         results = {}
-        for query_ind, query_embedding in enumerate(query_embeddings):
-            query_embedding = query_embedding.astype(np.float32).reshape(1, -1)
-            faiss.normalize_L2(query_embedding)
+        n_queries = len(query_embeddings) if query_embeddings is not None else self.faiss_index.ntotal
+        for batch_start in range(0, n_queries, query_batch_size):
+            batch_end = min(batch_start + query_batch_size, n_queries)
+            if (query_ids is None) and (query_embeddings is None):
+                _query_ids = self.hash_ids[batch_start:batch_end]
+                batch_embeddings = np.zeros((min(query_batch_size, n_queries - batch_start), self.embedding_dim), dtype=np.float32)
+                batch_embeddings = self.faiss_index.reconstruct_n(batch_start, batch_end-batch_start)
+            elif (query_ids is not None) and (query_embeddings is not None):
+                _query_ids = query_ids[batch_start:batch_end]
+                batch_embeddings = query_embeddings[batch_start:batch_end]
+                batch_embeddings = self._normalize_vectors(batch_embeddings.astype(np.float32))
+            else:
+                raise ValueError("Must provide either both query_ids or query_embeddings or neither. Instead: ", query_ids, query_embeddings)
 
-            scores, indices = self.faiss_index.search(query_embedding, min(k, self.faiss_index.ntotal))
-            topk_ids = []
-            topk_inds = []
-            topk_scores = []
-            for score, idx in zip(scores[0], indices[0]):
-                if idx != -1 and idx in self.faiss_id_to_hash_id:
-                    hash_id = self.faiss_id_to_hash_id[idx]
-                    query_id = query_ids[query_ind]
-                    topk_inds.append(idx)
-                    topk_ids.append(hash_id)
-                    topk_scores.append(float(score))
+            scores, indices = self.faiss_index.search(batch_embeddings, min(k, self.faiss_index.ntotal))
+            for query_ind, (scores, indices) in enumerate(zip(scores, indices)):
+                topk_ids = []
+                topk_inds = []
+                topk_scores = []
+                for score, idx in zip(scores, indices):
+                    if idx != -1 and idx in self.faiss_id_to_hash_id:
+                        hash_id = self.faiss_id_to_hash_id[idx]
+                        query_id = _query_ids[query_ind]
+                        topk_inds.append(idx)
+                        topk_ids.append(hash_id)
+                        topk_scores.append(float(score))
 
-            results[query_id] = (topk_ids, topk_inds, topk_scores)
+                results[query_id] = (np.array(topk_ids), np.array(topk_inds), np.array(topk_scores))
 
         return results

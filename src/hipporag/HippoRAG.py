@@ -31,7 +31,6 @@ from .prompts.prompt_template_manager import PromptTemplateManager
 from .rerank import DSPyFilter
 from .utils.misc_utils import *
 from .utils.misc_utils import NerRawOutput, TripleRawOutput
-from .utils.embed_utils import retrieve_knn
 from .utils.typing import Triple
 from .utils.config_utils import BaseConfig
 
@@ -143,13 +142,13 @@ class HippoRAG:
 
         self.chunk_embedding_store = FaissEmbeddingStore(self.embedding_model,
                                                     os.path.join(self.working_dir, "chunk_embeddings"),
-                                                    self.global_config.embedding_batch_size, 'chunk_faiss')
+                                                    self.global_config.embedding_batch_size, 'chunk')
         self.entity_embedding_store = FaissEmbeddingStore(self.embedding_model,
                                                      os.path.join(self.working_dir, "entity_embeddings"),
-                                                     self.global_config.embedding_batch_size, 'entity_faiss')
+                                                     self.global_config.embedding_batch_size, 'entity')
         self.fact_embedding_store = FaissEmbeddingStore(self.embedding_model,
                                                    os.path.join(self.working_dir, "fact_embeddings"),
-                                                   self.global_config.embedding_batch_size, 'fact_faiss')
+                                                   self.global_config.embedding_batch_size, 'fact')
         # self.chunk_embedding_store = EmbeddingStore(self.embedding_model,
         #                                             os.path.join(self.working_dir, "chunk_embeddings"),
         #                                             self.global_config.embedding_batch_size, 'chunk')
@@ -874,9 +873,7 @@ class HippoRAG:
         #                                             query_batch_size=self.global_config.synonymy_edge_query_batch_size,
         #                                             key_batch_size=self.global_config.synonymy_edge_key_batch_size)
 
-        # breakpoint()
-
-        query_node_key2knn_node_keys = self.entity_embedding_store.search_self()
+        query_node_key2knn_node_keys = self.entity_embedding_store.search()
 
         num_synonym_triple = 0
         synonym_candidates = []  # [(node key, [(synonym node key, corresponding score), ...]), ...]
@@ -1353,7 +1350,7 @@ class HippoRAG:
         #     query_fact_scores = min_max_normalize(query_fact_scores)
         try:
             results = self.fact_embedding_store.search([''], query_embedding.reshape((1, -1)), k=1000)
-            _, topk_scores = results['']
+            _, _, topk_scores = results['']
             query_fact_scores = min_max_normalize(topk_scores)
             return query_fact_scores
         except Exception as e:
@@ -1390,7 +1387,6 @@ class HippoRAG:
                                                                 encoding_type='query',
                                                                 instruction=get_query_instruction('query_to_passage'),
                                                                 norm=True)
-        breakpoint()
         # query_doc_scores = np.dot(self.passage_embeddings, query_embedding.T)
         # query_doc_scores = np.squeeze(query_doc_scores) if query_doc_scores.ndim == 2 else query_doc_scores
         # query_doc_scores = min_max_normalize(query_doc_scores)
