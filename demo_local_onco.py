@@ -8,11 +8,7 @@ from hipporag import HippoRAG
 from hipporag.utils.config_utils import BaseConfig
 
 
-# Run VLLM server with
-# > CUDA_VISIBLE_DEVICES=0 VLLM_WORKER_MULTIPROC_METHOD=spawn HF_HOME=$HOME/.cache/huggingface/ vllm serve google/medgemma-4b-it --tensor-parallel-size 1 --max_model_len 4096 --gpu-memory-utilization 0.95
-
 def main():
-
     # Prepare datasets and evaluation
     docs = [
         # Lung ADC (EGFR/ALK/KRAS/PD-L1 mix)
@@ -36,7 +32,7 @@ def main():
         "P012 | Lung adenocarcinoma, stage IV, heavy smoker; PD-L1 TPS 75%; 1L pembrolizumab → SD 5m; early immune‑related hepatitis.",
     ]
 
-    save_dir = "outputs/local"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
+    save_dir = "outputs/demo"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
     llm_model_name = "google/medgemma-4b-it"  # Any OpenAI model name
     embedding_model_name = "sentence-transformers/all-mpnet-base-v2"  # Embedding model name (NV-Embed, GritLM or Contriever for now)
 
@@ -108,6 +104,8 @@ def main():
     ]
 
     print(hipporag.rag_qa(queries=queries, gold_docs=gold_docs, gold_answers=answers))
+
+    print(hipporag.retrieve(queries=queries, gold_docs=gold_docs))
 
 
 if __name__ == "__main__":
