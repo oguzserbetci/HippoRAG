@@ -16,16 +16,16 @@ setuptools.setup(
     packages=setuptools.find_packages("src"),
     python_requires=">=3.10",
     install_requires=[
-        "torch==2.5.1",
-        "transformers==4.45.2",
-        "vllm==0.6.6.post1",
-        "openai==1.91.1",
+        "torch",
+        "transformers",
+        "vllm",
+        "openai",
         "litellm==1.73.1",
         "gritlm==1.0.2",
         "networkx==3.4.2",
         "python_igraph==0.11.8",
         "tiktoken==0.7.0",
-        "pydantic==2.10.4",
+        "pydantic",
         "tenacity==8.5.0",
         "einops", # No version specified
         "tqdm", # No version specified
