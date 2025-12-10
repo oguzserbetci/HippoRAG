@@ -8,15 +8,14 @@ ie_extraction_system = """You are an IE system for patient case reports and biom
 
 Extract a JSON array of OBSERVATIONS. Each statement is one short claim (your words) containing important features mentioned in the provided text.
 For each statement, list linked FEATURES with fields:
-- feature: short, normalized name, e.g. biomarker, operation, therapy, disease progression. 
-- type: one of [immunohistochemistry, molecular, imaging, therapy, trial_endpoint, adverse_event, clinical] 
-- category: one of [Features = baseline/biomarkers; Exposures = treatments/operations/medication; Outcomes = endpoints/toxicities/recurrence/progression] 
-- status: one of [positive, negative, present, absent, given, not_given, stable, progressive, improved, worsened, increased, decreased] 
-- relates_to: optional string or array naming the exposure(s) this observation refers to (e.g., "elacestrant") 
+- feature: short, normalized name, e.g. HER2, KRAS, Adenocarcinoma, T stage, Chemotherapy, Biopsy, Elacestrant, Metastasis.
+- type: one of [immunohistochemistry marker, molecular alteration, histological tumor type, tumor staging, treatment, operation, medication, progression]
+- category: one of [Features:baseline/biomarkers; Exposures:treatments/operations/medication; Outcomes:endpoints/recurrence/progression]
+- status: one of [positive, negative, present, absent, given, not_given, stable, progressive, improved, worsened, increased, decreased, G12D, T1]
 
-Rules: 
-- Keep it simple. No numbers, no comparators, no spans.
-- Clearly resolve abbreviations to their specific names to maintain clarity.
+Rules:
+- Keep it simple. No comparators, no spans.
+- Clearly resolve abbreviations to their specific names to maintain clarity and avoid ambiguity.
 """
 
 
@@ -37,27 +36,27 @@ one_shot_output = """{
         {
             "statement": "Immunohistochemistry showed strong positivity for S100 and TTF-1.",
             "features": [
-                { "feature": "S100", "type": "immunohistochemistry", "category": "feature", "status": "positive" },
-                { "feature": "TTF-1", "type": "immunohistochemistry", "category": "feature", "status": "positive" }
+                { "feature": "S100", "type": "immunohistochemistry marker", "category": "feature", "status": "positive" },
+                { "feature": "TTF-1", "type": "immunohistochemistry marker", "category": "feature", "status": "positive" }
             ]
         },
         {
             "statement": "Immunohistochemistry showed focal positivity for CD68.",
             "features": [
-                { "feature": "CD68", "type": "immunohistochemistry", "category": "feature", "status": "positive" }
+                { "feature": "CD68", "type": "immunohistochemistry marker", "category": "feature", "status": "positive" }
             ]
         },
         {
             "statement": "Tumor cells were negative for GFAP, synaptophysin, Cam5.2, pancytokeratin, inhibin, carbonic anhydrase, PAX8, and D2-40.",
             "features": [
-                { "feature": "GFAP", "type": "immunohistochemistry", "category": "feature", "status": "negative" },
-                { "feature": "synaptophysin", "type": "immunohistochemistry", "category": "feature", "status": "negative" },
-                { "feature": "Cam5.2", "type": "immunohistochemistry", "category": "feature", "status": "negative" },
-                { "feature": "pancytokeratin", "type": "immunohistochemistry", "category": "feature", "status": "negative" },
-                { "feature": "inhibin", "type": "immunohistochemistry", "category": "feature", "status": "negative" },
-                { "feature": "carbonic anhydrase", "type": "immunohistochemistry", "category": "feature", "status": "negative" },
-                { "feature": "PAX8", "type": "immunohistochemistry", "category": "feature", "status": "negative" },
-                { "feature": "D2-40", "type": "immunohistochemistry", "category": "feature", "status": "negative" }
+                { "feature": "GFAP", "type": "immunohistochemistry marker", "category": "feature", "status": "negative" },
+                { "feature": "synaptophysin", "type": "immunohistochemistry marker", "category": "feature", "status": "negative" },
+                { "feature": "Cam5.2", "type": "immunohistochemistry marker", "category": "feature", "status": "negative" },
+                { "feature": "pancytokeratin", "type": "immunohistochemistry marker", "category": "feature", "status": "negative" },
+                { "feature": "inhibin", "type": "immunohistochemistry marker", "category": "feature", "status": "negative" },
+                { "feature": "carbonic anhydrase", "type": "immunohistochemistry marker", "category": "feature", "status": "negative" },
+                { "feature": "PAX8", "type": "immunohistochemistry marker", "category": "feature", "status": "negative" },
+                { "feature": "D2-40", "type": "immunohistochemistry marker", "category": "feature", "status": "negative" }
             ]
         }
     ]
