@@ -11,28 +11,28 @@ from hipporag.utils.config_utils import BaseConfig
 def main():
     # Prepare datasets and evaluation
     docs = [
-        # Lung ADC (EGFR/ALK/KRAS/PD-L1 mix)
-        "P001 | Lung adenocarcinoma, stage IV, never-smoker; EGFR exon19del; 1L gefitinib → PR 10m; acquired EGFR T790M; 2L osimertinib → PR 14m; PD after 26m.",
-        "P002 | Lung adenocarcinoma, stage IIIB; EGFR L858R; lobectomy; adjuvant osimertinib; disease-free at 18m.",
-        "P003 | Lung adenocarcinoma, stage IV; ALK rearranged (EML4::ALK); 1L alectinib → durable CR 24m.",
-        "P004 | Lung adenocarcinoma, stage IV; KRAS G12C; 1L platinum/pemetrexed → SD 4m; 2L sotorasib → PR 8m.",
-        "P005 | Lung adenocarcinoma, stage IV; PD-L1 TPS 80%, TTF-1 positive, EGFR/KRAS/ALK wildtype; 1L pembrolizumab monotherapy → PR 12m.",
-        "P006 | Lung adenocarcinoma, stage IV; EGFR exon19del; 1L erlotinib → PD 5m; no T790M; 2L chemo; deceased at 11m.",
-        # Lung SCC / TTF-1 negative
-        "P007 | Lung squamous cell carcinoma, stage IV; PD-L1 TPS 10%; 1L platinum + pembrolizumab → SD 6m.",
-        # CRC liver met (for negative controls / multi-entity hops)
-        "P008 | Colorectal adenocarcinoma, liver metastasis; KRAS wildtype; 1L FOLFOX + bevacizumab → PR 9m.",
-        # Breast (ER/PR/HER2)
-        "P009 | Breast invasive ductal carcinoma, ER+/PR+, HER2-; metastatic; 1L letrozole + CDK4/6 inhibitor → PR 14m.",
-        # Lung ADC EGFR, resistance without T790M (rare)
-        "P010 | Lung adenocarcinoma, stage IV; EGFR exon19del; 1L gefitinib → PD 8m; C797S detected; switched to chemo; SD 4m.",
-        # Lung ADC ALK, sequence lines
-        "P011 | Lung adenocarcinoma, stage IV; ALK rearranged; 1L crizotinib → PD 8m; 2L alectinib → PR 12m.",
-        # Lung ADC PD-L1 high but smoker (edge)
-        "P012 | Lung adenocarcinoma, stage IV, heavy smoker; PD-L1 TPS 75%; 1L pembrolizumab → SD 5m; early immune‑related hepatitis.",
+        # Patients
+        "Breast carcinoma shows HER2 negativity and strong ER positivity. PR status was not assessed.",
+        "Breast carcinoma is ER positive but PR negative. HER2 testing was not documented.",
+        "Endometrial carcinoma demonstrates MSI-high by MLH1 loss. PTEN status was not yet available.",
+        "Endometrial carcinoma shows a PTEN mutation with ER positivity. MSI testing was not performed.",
+        "Cutaneous melanoma harbors a BRAF V600E mutation. S100 immunostaining is positive.",
+        "Cutaneous melanoma expresses SOX10 and also carries a BRAF V600E mutation. S100 was not tested.",
+        "Colorectal adenocarcinoma is CK20 and CDX2 positive. RAS testing was not performed.",
+        "Colorectal carcinoma harbors a KRAS G12D mutation. Immunohistochemistry was not available.",
+        "Glioblastoma shows GFAP positivity and IDH1 wildtype. MGMT status was not reported.",
+        "Glioblastoma demonstrates MGMT promoter methylation. IDH status was not documented.",
+        "Gastric adenocarcinoma shows HER2 overexpression (3+). TP53 status was not available.",
+        "Gastric adenocarcinoma carries a TP53 mutation. HER2 status was not provided.",
+        # Articles
+        "Elacestrant versus standard endocrine therapy in ER-positive, HER2-negative advanced breast cancer (EMERALD trial). Patients with pretreated ER+/HER2- breast cancer often have poor prognosis, with PR status influencing therapeutic response.",
+        "Immune checkpoint blockade in MSI-high endometrial carcinoma with PTEN pathway alterations. MSI-high and PTEN mutations frequently co-occur, and ER positivity may stratify therapeutic response.",
+        "BRAF/MEK inhibition in melanoma with melanocytic markers. S100 and SOX10 expression often coincide with BRAF V600E mutations, guiding targeted therapy.",
+        "KRAS mutations in colorectal carcinoma. CK20/CDX2 positive tumors often harbor KRAS mutations such as G12D, impacting response to anti-EGFR therapy.",
+        "HER2-positive gastric cancers and TP53 mutations. HER2 overexpression frequently coexists with TP53 alterations, with therapeutic implications for trastuzumab-based regimens.",
     ]
 
-    save_dir = "outputs/demo"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
+    save_dir = "outputs/new_onco_bio"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
     llm_model_name = "google/medgemma-4b-it"  # Any OpenAI model name
     embedding_model_name = "sentence-transformers/all-mpnet-base-v2"  # Embedding model name (NV-Embed, GritLM or Contriever for now)
 
@@ -49,63 +49,48 @@ def main():
 
     # Separate Retrieval & QA
     queries = [
-        # A) Single-hop feature match (Feature similarity)
-        "Find patients most similar to: stage IV lung adenocarcinoma with ALK rearrangement treated with an ALK inhibitor as first line.",
-        # B) Multi-hop (Feature → resistance biomarker → next-line therapy)
-        "Retrieve patients who started on an EGFR TKI for EGFR exon19del and, after developing T790M, received osimertinib.",
-        # C) Exposure + Outcome constraint (therapy response)
-        "Return lung adenocarcinoma cases with PD-L1 ≥ 50% treated with pembrolizumab monotherapy achieving ≥ PR for at least 10 months.",
-        # D) Hard negative control (mismatch by tumor type)
-        "Exclude colorectal or breast cancer; return only lung cases with KRAS G12C who received a KRAS G12C inhibitor.",
-        # E) EGFR progression without T790M (contrast case)
-        "Find EGFR exon19del lung adenocarcinoma progressing on 1L gefitinib/erlotinib without T790M and NOT receiving osimertinib.",
+        # A
+        "Breast carcinoma is HER2 negative and ER positive with PR negativity. The combined biomarker profile suggests aggressive endocrine-resistant disease.",
+        # B
+        "Endometrial carcinoma is MSI-high with a PTEN mutation and ER positivity. These features align with potential benefit from immunotherapy.",
+        # C
+        "Melanoma shows BRAF V600E with both S100 and SOX10 positivity. The combined features suggest suitability for BRAF/MEK inhibition.",
+        # D
+        "Colorectal adenocarcinoma is CK20/CDX2 positive with a KRAS G12D mutation. These biomarkers indicate resistance to anti-EGFR therapy.",
+        # E
+        "Gastric adenocarcinoma is HER2 positive with a TP53 mutation. This combination has implications for trastuzumab response.",
     ]
 
     # For Evaluation
-    answers = [
-        # A
-        ["P003", "P011"],  # alectinib/crizotinib→alectinib paths; both ALK+
-        # B
-        ["P001"],  # explicit T790M → osimertinib sequence
-        # C
-        ["P005"],  # PD-L1 80% on pembro with PR 12m
-        # D
-        ["P004"],  # KRAS G12C → sotorasib; lung only
-        # E
-        [
-            "P006",
-            "P010",
-        ],  # exon19del, progressed; P006: no T790M; P010: C797S; neither got osimertinib as effective 2L
-    ]
-
     gold_docs = [
         # A
         [
-            "P003 | Lung adenocarcinoma, stage IV; ALK rearranged (EML4::ALK); 1L alectinib → durable CR 24m.",
-            "P011 | Lung adenocarcinoma, stage IV; ALK rearranged; 1L crizotinib → PD 8m; 2L alectinib → PR 12m.",
+            "Breast carcinoma shows HER2 negativity and strong ER positivity. PR status was not assessed.",
+            "Elacestrant versus standard endocrine therapy in ER-positive, HER2-negative advanced breast cancer (EMERALD trial). Patients with pretreated ER+/HER2- breast cancer often have poor prognosis, with PR status influencing therapeutic response.",
         ],
         # B
         [
-            "P001 | Lung adenocarcinoma, stage IV, never-smoker; EGFR exon19del; 1L gefitinib → PR 10m; acquired EGFR T790M; 2L osimertinib → PR 14m; PD after 26m."
+            "Endometrial carcinoma demonstrates MSI-high by MLH1 loss. PTEN status was not yet available.",
+            "Immune checkpoint blockade in MSI-high endometrial carcinoma with PTEN pathway alterations. MSI-high and PTEN mutations frequently co-occur, and ER positivity may stratify therapeutic response.",
         ],
         # C
         [
-            "P005 | Lung adenocarcinoma, stage IV; PD-L1 TPS 80%, TTF-1 positive, EGFR/KRAS/ALK wildtype; 1L pembrolizumab monotherapy → PR 12m."
+            "Cutaneous melanoma harbors a BRAF V600E mutation. S100 immunostaining is positive.",
+            "BRAF/MEK inhibition in melanoma with melanocytic markers. S100 and SOX10 expression often coincide with BRAF V600E mutations, guiding targeted therapy.",
         ],
         # D
         [
-            "P004 | Lung adenocarcinoma, stage IV; KRAS G12C; 1L platinum/pemetrexed → SD 4m; 2L sotorasib → PR 8m."
+            "Colorectal adenocarcinoma is CK20 and CDX2 positive. RAS testing was not performed.",
+            "KRAS mutations in colorectal carcinoma. CK20/CDX2 positive tumors often harbor KRAS mutations such as G12D, impacting response to anti-EGFR therapy.",
         ],
         # E
         [
-            "P006 | Lung adenocarcinoma, stage IV; EGFR exon19del; 1L erlotinib → PD 5m; no T790M; 2L chemo; deceased at 11m.",
-            "P010 | Lung adenocarcinoma, stage IV; EGFR exon19del; 1L gefitinib → PD 8m; C797S detected; switched to chemo; SD 4m.",
+            "Gastric adenocarcinoma shows HER2 overexpression (3+). TP53 status was not available.",
+            "HER2-positive gastric cancers and TP53 mutations. HER2 overexpression frequently coexists with TP53 alterations, with therapeutic implications for trastuzumab-based regimens.",
         ],
     ]
 
-    print(hipporag.rag_qa(queries=queries, gold_docs=gold_docs, gold_answers=answers))
-
-    print(hipporag.retrieve(queries=queries, gold_docs=gold_docs))
+    print(hipporag.retrieve(queries=queries, num_to_retrieve=2, gold_docs=gold_docs))
 
 
 if __name__ == "__main__":

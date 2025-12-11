@@ -11,21 +11,21 @@ from beir.retrieval.search.dense import DenseRetrievalExactSearch as DRES
 
 def main():
     queries = srsly.read_jsonl(
-        "/vol/wbi/wbi_stud/wbi-datasets/PMC-Patients/ReCDS_benchmark/queries/dev_queries.jsonl"
+        "/vol/wbi/wbi_stud/wbi-datasets/PMC-Patients/Cancer_Patients/queries/cancer_dev_queries.jsonl"
     )
     queries = {s["_id"]: s["text"] for s in queries}
     corpus = srsly.read_jsonl(
-            "/vol/wbi/wbi_stud/wbi-datasets/PMC-Patients/ReCDS_benchmark/PPR/corpus.jsonl"
+            "/vol/wbi/wbi_stud/wbi-datasets/PMC-Patients/Cancer_Patients/PPR_cancer/cancer_corpus.jsonl"
         )
     corpus = {s["_id"]: s for s in corpus}
 
     qrels = pl.read_csv(
-        "/vol/wbi/wbi_stud/wbi-datasets/PMC-Patients/ReCDS_benchmark/PPR/qrels_dev.tsv",
+        "/vol/wbi/wbi_stud/wbi-datasets/PMC-Patients/Cancer_Patients/PPR_cancer/cancer_qrels_dev.tsv",
         separator="\t",
     )
     qrels = {
-        row["query-id"]: {c_id: 1 for c_id in row["corpus-id"]}
-        for row in qrels.group_by("query-id").agg(pl.col("corpus-id")).rows(named=True)
+        row["query_id"]: {c_id: 1 for c_id in row["corpus_id"]}
+        for row in qrels.group_by("query_id").agg(pl.col("corpus_id")).rows(named=True)
     }
     queries = {k: v for k, v in queries.items() if k in qrels}
 
@@ -72,11 +72,14 @@ def main():
     ndcg, _map, recall, precision = retriever.evaluate(qrels, results, retriever.k_values)
     mrr = retriever.evaluate_custom(qrels, results, k_values=retriever.k_values + [len(corpus)], metric='mrr')
     print('Indexed and retrieved in', (end_time - start_time) / 60, 'minutes')
+    
+    print("Corpus", len(corpus), "Queries", len(queries), "Qrels", len(qrels))
     print("RECALL", recall)
     print("PRECISION", precision)
     print("NDCG", ndcg)
     print("MAP", _map)
     print("MRR", mrr)
+    print(f"{mrr['MRR']*100}, {precision['P@10']*100}, {ndcg['NDCG@10']*100}, {recall['Recall@10']*100}")
 
 if __name__ == "__main__":
     main()

@@ -55,15 +55,15 @@ def main():
         hipporag_doc_ids.update(corpus_ids)
 
     # Uncomment for full corpus
-    # hipporag_docs = [
-    #     f"# {d['title']}\n{d['text']}" if d["title"] else d["text"]
-    #     for d in corpus.values()
-    # ]
+    hipporag_docs = [
+        f"# {d['title']}\n{d['text']}" if d["title"] else d["text"]
+        for d in corpus.values()
+    ]
 
     print("Data is ready:", 'Corpus:',len(hipporag_docs), 'Queries:', len(hipporag_queries), 'Qrels:', len(hipporag_gold_docs))
 
-    save_dir = "outputs/pmc_subcorpus"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
-    llm_model_name = "google/medgemma-4b-it"  # Any OpenAI model name
+    save_dir = "outputs/pmc_subcorpus_bio"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
+    llm_model_name = "google/medgemma-27b-text-it"  # Any OpenAI model name
     # embedding_model_name = "Qwen/Qwen3-Embedding-8B"  # Embedding model name (NV-Embed, GritLM or Contriever for now)
     embedding_model_name = "sentence-transformers/all-mpnet-base-v2"  # Embedding model name (NV-Embed, GritLM or Contriever for now)
 
