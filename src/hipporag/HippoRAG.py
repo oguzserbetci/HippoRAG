@@ -125,7 +125,7 @@ class HippoRAG:
         self.llm_model: BaseLLM = _get_llm_class(self.global_config)
 
         if self.global_config.openie_mode == 'online':
-            self.openie = OpenIE(llm_model=self.llm_model)
+            self.openie = OpenIE(llm_model=self.llm_model, global_config=self.global_config)
         elif self.global_config.openie_mode == 'offline':
             self.openie = VLLMOfflineOpenIE(self.global_config)
         elif self.global_config.openie_mode ==  'Transformers-offline':
