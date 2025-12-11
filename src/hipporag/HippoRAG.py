@@ -215,6 +215,35 @@ class HippoRAG:
 
         assert False, logger.info('Done with OpenIE, run online indexing for future retrieval.')
 
+    def load_kb(self, entities, triples):
+        triples = [text_processing(t) for t in triples]
+
+        facts = flatten_facts(triples)
+
+        logger.info(f"Encoding Entities")
+        self.entity_embedding_store.insert_strings(entities)
+
+        logger.info(f"Encoding Facts")
+        self.fact_embedding_store.insert_strings([str(fact) for fact in facts])
+        logger.info(f"Constructing Graph")
+
+        self.node_to_node_stats = {}
+        self.ent_node_to_chunk_ids = {}
+
+        for triple in triples:
+            triple = tuple(triple)
+
+            node_key = compute_mdhash_id(content=triple[0], prefix=("entity-"))
+            node_2_key = compute_mdhash_id(content=triple[2], prefix=("entity-"))
+
+            self.node_to_node_stats[(node_key, node_2_key)] = self.node_to_node_stats.get(
+                (node_key, node_2_key), 0.0) + 1
+            self.node_to_node_stats[(node_2_key, node_key)] = self.node_to_node_stats.get(
+                (node_2_key, node_key), 0.0) + 1
+
+        self.augment_graph()
+        self.save_igraph()
+
     def index(self, docs: List[str]):
         """
         Indexes the given documents based on the HippoRAG 2 framework which generates an OpenIE knowledge graph
