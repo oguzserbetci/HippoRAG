@@ -12,13 +12,13 @@ from src.hipporag import HippoRAG
 def main():
     save_dir = "outputs/kb"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
     # llm_model_name = "google/medgemma-4b-it"  # Any OpenAI model name
-    llm_model_name = 'gpt-4o-mini'  # Any OpenAI model name
+    llm_model_name = "gpt-4o-mini"  # Any OpenAI model name
     # llm_model_name = 'gpt-5-mini'  # Any OpenAI model name
     embedding_model_name = "Transformers/sentence-transformers/all-mpnet-base-v2"  # Embedding model name (NV-Embed, GritLM or Contriever for now)
 
     # Startup a HippoRAG instance
     hipporag = HippoRAG(
-        global_config=BaseConfig(embedding_batch_size=128, dataset='bio'),
+        global_config=BaseConfig(embedding_batch_size=128, dataset="bio"),
         save_dir=save_dir,
         llm_model_name=llm_model_name,
         embedding_model_name=embedding_model_name,
@@ -34,10 +34,8 @@ def main():
         )
         .select(["labels", "rel", "labels_object"])
     )
-    hipporag.load_kb(
-        entities=df_concepts['labels'].to_list(), triples=triples.rows()
-    )
-    
+    hipporag.load_kb(entities=df_concepts["labels"].to_list(), triples=triples.rows())
+
     # Prepare datasets and evaluation
     docs = [
         "BCR-ABL1 Fusion has a targeted therapy Dasatinib for B-Lymphoblastic Leukemia/Lymphoma.",
@@ -46,7 +44,7 @@ def main():
         "PIK3CA also known as PI3K.",
         "PIK3CA, the catalytic subunit of PI3-kinase, is frequently mutated in a diverse range of cancers including breast, endometrial and cervical cancers.",
         "The PI3K pathway is an intracellular signal transduction pathway that regulates key cellular processes like growth, proliferation, survival, and metabolism. It starts with PI3K (phosphatidylinositol 3-kinase), which is activated by extracellular signals, leading to the activation of downstream proteins like AKT (also known as Protein Kinase B). The pathway is crucial for many cellular functions, and its dysregulation is frequently linked to diseases like cancer.",
-        "The PI3K/AKT/mTOR pathway is an intracellular signaling pathway important in regulating the cell cycle. Therefore, it is directly related to cellular quiescence, proliferation, cancer, and longevity."
+        "The PI3K/AKT/mTOR pathway is an intracellular signaling pathway important in regulating the cell cycle. Therefore, it is directly related to cellular quiescence, proliferation, cancer, and longevity.",
     ]
 
     hipporag.index(docs=docs)
@@ -64,15 +62,30 @@ def main():
     ]
 
     gold_docs = [
-        ["BCR-ABL1 Fusion is well-studied and results in constitutive downstream JAK/STAT and PI3K signaling."],
-        ["BCR-ABL1 Fusion is well-studied and results in constitutive downstream JAK/STAT and PI3K signaling.",
-         "BCR-ABL1 Fusion has a targeted therapy Dasatinib for B-Lymphoblastic Leukemia/Lymphoma."],
+        [
+            "BCR-ABL1 Fusion is well-studied and results in constitutive downstream JAK/STAT and PI3K signaling."
+        ],
+        [
+            "BCR-ABL1 Fusion is well-studied and results in constitutive downstream JAK/STAT and PI3K signaling.",
+            "BCR-ABL1 Fusion has a targeted therapy Dasatinib for B-Lymphoblastic Leukemia/Lymphoma.",
+        ],
     ]
 
-    print(hipporag.rag_qa(queries=queries,
-                        gold_docs=gold_docs,
-                        gold_answers=answers))
+    print(hipporag.rag_qa(queries=queries, gold_docs=gold_docs, gold_answers=answers))
 
+    seed_vertices = hipporag.graph.vs[-7:].indices
+    cc = hipporag.graph.connected_components()
+    breakpoint()
+    connected_vertices = set().union(*(cc[cc.membership[v]] for v in seed_vertices))
+    print("Connected vertices:", len(connected_vertices))
+    neighbors_hop_1 = set().union(*(hipporag.graph.neighbors(v) for v in seed_vertices))
+    neighbors_hop_2 = set().union(
+        *(hipporag.graph.neighbors(v) for v in neighbors_hop_1)
+    )
+    only_hop_2 = neighbors_hop_2 - neighbors_hop_1 - set(seed_vertices)
+    print("Immediate neighbors:", len(neighbors_hop_1 - set(seed_vertices)))
+    print("2 hop neighbors:", len(only_hop_2), " with contents:")
+    print(hipporag.graph.vs[list(only_hop_2)].get_attribute_values("content"))
 
 
 if __name__ == "__main__":
