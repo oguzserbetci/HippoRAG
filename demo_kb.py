@@ -12,7 +12,8 @@ from src.hipporag import HippoRAG
 def main():
     save_dir = "outputs/kb"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
     # llm_model_name = "google/medgemma-4b-it"  # Any OpenAI model name
-    llm_model_name = 'gpt-5-mini'  # Any OpenAI model name
+    llm_model_name = 'gpt-4o-mini'  # Any OpenAI model name
+    # llm_model_name = 'gpt-5-mini'  # Any OpenAI model name
     embedding_model_name = "Transformers/sentence-transformers/all-mpnet-base-v2"  # Embedding model name (NV-Embed, GritLM or Contriever for now)
 
     # Startup a HippoRAG instance
