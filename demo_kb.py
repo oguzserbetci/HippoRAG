@@ -11,16 +11,16 @@ from src.hipporag import HippoRAG
 
 def main():
     save_dir = "outputs/kb"  # Define save directory for HippoRAG objects (each LLM/Embedding model combination will create a new subdirectory)
-    llm_model_name = "google/medgemma-4b-it"  # Any OpenAI model name
-    embedding_model_name = "sentence-transformers/all-mpnet-base-v2"  # Embedding model name (NV-Embed, GritLM or Contriever for now)
+    # llm_model_name = "google/medgemma-4b-it"  # Any OpenAI model name
+    llm_model_name = 'gpt-5-mini'  # Any OpenAI model name
+    embedding_model_name = "Transformers/sentence-transformers/all-mpnet-base-v2"  # Embedding model name (NV-Embed, GritLM or Contriever for now)
 
     # Startup a HippoRAG instance
     hipporag = HippoRAG(
-        global_config=BaseConfig(embedding_batch_size=128, dataset='bio', max_new_tokens=4096),
+        global_config=BaseConfig(embedding_batch_size=128, dataset='bio'),
         save_dir=save_dir,
         llm_model_name=llm_model_name,
         embedding_model_name=embedding_model_name,
-        llm_base_url="http://localhost:4868/v1",
     )
 
     df_concepts = pl.scan_parquet("snomed_ct_concepts.parquet").collect()
