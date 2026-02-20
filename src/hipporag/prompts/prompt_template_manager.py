@@ -13,10 +13,10 @@ logger = get_logger(__name__)
 
 @dataclass
 class PromptTemplateManager:
-    # templates_dir: Optional[str] = field(
-    #     default=None, 
-    #     metadata={"help": "Directory containing template scripts. Default to the `templates` dir under dir whether this class is defined."}
-    # )
+    templates_dir: Optional[str] = field(
+        default=None, 
+        metadata={"help": "Directory containing template scripts. Default to the `templates` dir under dir whether this class is defined."}
+    )
     role_mapping: Dict[str, str] = field(
         default_factory=lambda: {"system": "system", "user": "user", "assistant": "assistant"},
         metadata={"help": "Mapping from default roles in prompte template files to specific LLM providers' defined roles."}
@@ -26,26 +26,18 @@ class PromptTemplateManager:
         default_factory=dict,
         metadata={"help": "A dict from prompt template names to templates. A prompt template can be a Template instance or a chat history which is a list of dict with content as Template instance."}
     )
-
     
     def __post_init__(self) -> None:
         """
         Initialize the templates directory and load templates.
         """
-        # if self.templates_dir is None:
-        #     current_file_path = os.path.abspath(__file__)
-        #     package_dir = os.path.dirname(current_file_path)
-        #     self.templates_dir = os.path.join(package_dir, "templates")
-        current_file_path = os.path.abspath(__file__)
-        package_dir = os.path.dirname(current_file_path)
+        if self.templates_dir is None:
+            current_file_path = os.path.abspath(__file__)
+            package_dir = os.path.dirname(current_file_path)
+            self.templates_dir = os.path.join(package_dir, "templates")
         
-        # abs path to dir where each *.py file (exclude __init__.py) contains a variable prompt_template (a str or a chat history with content as raw str for being converted to a Template)
-        self.templates_dir = os.path.join(package_dir, "templates") 
-
         self._load_templates()
 
-    
-    
     def _load_templates(self) -> None:
         """
         Load all templates from Python scripts in the templates directory.

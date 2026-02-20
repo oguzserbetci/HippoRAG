@@ -4,6 +4,8 @@ import json
 import argparse
 import logging
 import polars as pl
+from regex import P
+from hipporag.prompts.prompt_template_manager import PromptTemplateManager
 from hipporag.utils.config_utils import BaseConfig
 
 from src.hipporag import HippoRAG
@@ -23,6 +25,7 @@ def main():
         llm_model_name=llm_model_name,
         embedding_model_name=embedding_model_name,
     )
+    hipporag.prompt_template_manager = PromptTemplateManager(role_mapping={"system": "system", "user": "user", "assistant": "assistant"}, templates_dir="src/biohippo/prompts/templates")
 
     df_concepts = pl.scan_parquet("snomed_ct_concepts.parquet").collect()
     df_concepts = df_concepts.with_columns(pl.col("labels").list.get(0))
