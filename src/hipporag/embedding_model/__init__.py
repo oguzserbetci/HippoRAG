@@ -13,7 +13,9 @@ logger = get_logger(__name__)
 
 
 def _get_embedding_model_class(embedding_model_name: str = "nvidia/NV-Embed-v2"):
-    if "GritLM" in embedding_model_name:
+    if embedding_model_name.startswith("llm"):
+        return OpenAIEmbeddingModel
+    elif "GritLM" in embedding_model_name:
         return GritLMEmbeddingModel
     elif "NV-Embed-v2" in embedding_model_name:
         return NVEmbedV2EmbeddingModel

@@ -1,6 +1,7 @@
 import functools
 import hashlib
 import json
+import logging
 import os
 import sqlite3
 from copy import deepcopy
@@ -13,6 +14,9 @@ from openai import OpenAI
 from openai import AzureOpenAI
 from packaging import version
 from tenacity import retry, stop_after_attempt, wait_fixed
+import time
+import threading
+from functools import wraps
 
 from ..utils.config_utils import BaseConfig
 from ..utils.llm_utils import (
@@ -22,6 +26,44 @@ from ..utils.logging_utils import get_logger
 from .base import BaseLLM, LLMConfig
 
 logger = get_logger(__name__)
+logger.setLevel(logging.INFO)
+
+def rate_limit_rpm(rpm: int):
+    interval = 60.0 / float(rpm)
+    lock = threading.Lock()
+    last_call = 0.0
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapped(*args, **kwargs):
+            nonlocal last_call
+            with lock:
+                now = time.time()
+                wait = interval - (now - last_call)
+                if wait > 0:
+                    time.sleep(wait)
+                last_call = time.time()
+            return fn(*args, **kwargs)
+        return wrapped
+    return decorator
+
+def print_example(rate: int):
+    lock = threading.Lock()
+    counter = 0
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapped(*args, **kwargs):
+            returned_value = fn(*args, **kwargs)
+            nonlocal counter
+            with lock:
+                if counter % rate == 0:
+                    print(f"Example call #{counter} to {fn.__name__} with args: {args}, kwargs: {kwargs}")
+                    print(f"Returned value: {returned_value}")
+                counter += 1
+            return returned_value
+        return wrapped
+    return decorator
 
 def cache_response(func):
     @functools.wraps(func)
@@ -167,6 +209,8 @@ class CacheOpenAI(BaseLLM):
         logger.debug(f"Init {self.__class__.__name__}'s llm_config: {self.llm_config}")
 
     @cache_response
+    @rate_limit_rpm(100)
+    @print_example(10.000)
     @dynamic_retry_decorator
     def infer(
         self,
