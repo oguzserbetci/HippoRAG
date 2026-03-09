@@ -215,32 +215,43 @@ class HippoRAG:
 
         assert False, logger.info('Done with OpenIE, run online indexing for future retrieval.')
 
-    def load_kb(self, entities, triples):
-        triples = [text_processing(t) for t in triples]
+    def load_kb(self, entities, triples, doc_ids=None, corpus=None):
+        triples = [text_processing(list(t)) for t in triples]
 
         facts = flatten_facts(triples)
 
-        logger.info(f"Encoding Entities")
+        logger.info("Encoding Entities")
         self.entity_embedding_store.insert_strings(entities)
 
-        logger.info(f"Encoding Facts")
+        logger.info("Encoding Facts")
         self.fact_embedding_store.insert_strings([str(fact) for fact in facts])
-        logger.info(f"Constructing Graph")
+        logger.info("Constructing Graph")
 
         self.node_to_node_stats = {}
         self.ent_node_to_chunk_ids = {}
 
         for triple in triples:
-            triple = tuple(triple)
-
             node_key = compute_mdhash_id(content=triple[0], prefix=("entity-"))
             node_2_key = compute_mdhash_id(content=triple[2], prefix=("entity-"))
 
-            self.node_to_node_stats[(node_key, node_2_key)] = self.node_to_node_stats.get(
-                (node_key, node_2_key), 0.0) + 1
-            self.node_to_node_stats[(node_2_key, node_key)] = self.node_to_node_stats.get(
-                (node_2_key, node_key), 0.0) + 1
+            self.node_to_node_stats[(node_key, node_2_key)] = (
+                self.node_to_node_stats.get((node_key, node_2_key), 0.0) + 1
+            )
+            self.node_to_node_stats[(node_2_key, node_key)] = (
+                self.node_to_node_stats.get((node_2_key, node_key), 0.0) + 1
+            )
+        
+        if doc_ids is not None:
+            doc_hashes = []
+            for (node_1, _, node_2), doc_id in zip(triples, doc_ids):
+                doc_hash = compute_mdhash_id(content=corpus[doc_id], prefix="chunk-")
+                doc_hashes.append(doc_hash)
+                node_1_key = compute_mdhash_id(content=node_1, prefix=("entity-"))
+                self.node_to_node_stats[(doc_hash, node_1_key)] = 1.0
+                node_2_key = compute_mdhash_id(content=node_2, prefix=("entity-"))
+                self.node_to_node_stats[(doc_hash, node_2_key)] = 1.0
 
+        self.add_synonymy_edges()
         self.augment_graph()
         self.save_igraph()
 
@@ -1510,9 +1521,13 @@ class HippoRAG:
             linking_score_map[phrase] = float(np.mean(scores))
 
         if link_top_k:
-            phrase_weights, linking_score_map = self.get_top_k_weights(link_top_k,
-                                                                           phrase_weights,
-                                                                           linking_score_map)  # at this stage, the length of linking_scope_map is determined by link_top_k
+            try:
+                phrase_weights, linking_score_map = self.get_top_k_weights(
+                    link_top_k, phrase_weights, linking_score_map
+                )  # at this stage, the length of linking_scope_map is determined by link_top_k
+            except Exception as e:
+                logger.error(f"Error occurred while getting top k weights: {e}")
+                breakpoint()
 
         #Get passage scores according to chosen dense retrieval model
         dpr_sorted_doc_ids, dpr_sorted_doc_scores = self.dense_passage_retrieval(query)

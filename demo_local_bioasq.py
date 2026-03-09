@@ -95,7 +95,6 @@ def main():
     
     # Startup a HippoRAG instance
     hipporag = HippoRAG(
-        # global_config=BaseConfig(openie_mode='offline', llm_name=llm_model_name, embedding_model_name=embedding_model_name),
         global_config=config,
         save_dir=save_dir,
         llm_model_name=llm_model_name,
