@@ -1,19 +1,12 @@
 import json
 import os
 import logging
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from typing import Union, Optional, List, Set, Dict, Any, Tuple, Literal
+from dataclasses import asdict
+from typing import List, Set, Dict, Tuple
 import numpy as np
-import importlib
 from collections import defaultdict
-from transformers import HfArgumentParser
-from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
-from igraph import Graph
 import igraph as ig
-import numpy as np
-from collections import defaultdict
 import re
 import time
 
@@ -22,16 +15,24 @@ from .embedding_model import _get_embedding_model_class, BaseEmbeddingModel
 from .embedding_store import EmbeddingStore
 from .information_extraction import OpenIE
 from .information_extraction.openie_vllm_offline import VLLMOfflineOpenIE
-from .information_extraction.openie_transformers_offline import TransformersOfflineOpenIE
+from .information_extraction.openie_transformers_offline import (
+    TransformersOfflineOpenIE,
+)
 from .evaluation.retrieval_eval import RetrievalRecall
 from .evaluation.qa_eval import QAExactMatch, QAF1Score
 from .prompts.linking import get_query_instruction
 from .prompts.prompt_template_manager import PromptTemplateManager
 from .rerank import DSPyFilter
-from .utils.misc_utils import *
-from .utils.misc_utils import NerRawOutput, TripleRawOutput
+from .utils.misc_utils import (
+    reformat_openie_results,
+    text_processing,
+    extract_entity_nodes,
+    flatten_facts,
+    compute_mdhash_id,
+    min_max_normalize,
+)
+from .utils.misc_utils import NerRawOutput, TripleRawOutput, QuerySolution
 from .utils.embed_utils import retrieve_knn
-from .utils.typing import Triple
 from .utils.config_utils import BaseConfig
 
 logger = logging.getLogger(__name__)
