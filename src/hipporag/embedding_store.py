@@ -4,7 +4,7 @@ import os
 from typing import Union, Optional, List, Dict, Set, Any, Tuple, Literal
 import logging
 from copy import deepcopy
-import pandas as pd
+import polars as pl
 
 from .utils.misc_utils import compute_mdhash_id, NerRawOutput, TripleRawOutput
 
@@ -80,7 +80,7 @@ class EmbeddingStore:
             f"Inserting {len(missing_ids)} new records, {len(all_hash_ids) - len(missing_ids)} records already exist.")
 
         if not missing_ids:
-            return  {}# All records already exist.
+            return {}# All records already exist.
 
         # Prepare the texts to encode from the "content" field.
         texts_to_encode = [nodes_dict[hash_id]["content"] for hash_id in missing_ids]
@@ -91,8 +91,8 @@ class EmbeddingStore:
 
     def _load_data(self):
         if os.path.exists(self.filename):
-            df = pd.read_parquet(self.filename)
-            self.hash_ids, self.texts, self.embeddings = df["hash_id"].values.tolist(), df["content"].values.tolist(), df["embedding"].values.tolist()
+            df = pl.read_parquet(self.filename)
+            self.hash_ids, self.texts, self.embeddings = df["hash_id"].to_list(), df["content"].to_list(), df["embedding"].to_list()
             self.hash_id_to_idx = {h: idx for idx, h in enumerate(self.hash_ids)}
             self.hash_id_to_row = {
                 h: {"hash_id": h, "content": t}
@@ -107,12 +107,12 @@ class EmbeddingStore:
             self.hash_id_to_idx, self.hash_id_to_row = {}, {}
 
     def _save_data(self):
-        data_to_save = pd.DataFrame({
+        data_to_save = pl.DataFrame({
             "hash_id": self.hash_ids,
             "content": self.texts,
             "embedding": self.embeddings
         })
-        data_to_save.to_parquet(self.filename, index=False)
+        data_to_save.write_parquet(self.filename)
         self.hash_id_to_row = {h: {"hash_id": h, "content": t} for h, t, e in zip(self.hash_ids, self.texts, self.embeddings)}
         self.hash_id_to_idx = {h: idx for idx, h in enumerate(self.hash_ids)}
         self.hash_id_to_text = {h: self.texts[idx] for idx, h in enumerate(self.hash_ids)}
