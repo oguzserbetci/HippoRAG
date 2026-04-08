@@ -102,7 +102,7 @@ class OpenAIEmbeddingModel(BaseEmbeddingModel):
                 batch = texts[i:i + batch_size]
                 try:
                     results.append(self.encode(batch))
-                except:
+                except Exception as e:
                     import ipdb; ipdb.set_trace()
                 pbar.update(batch_size)
             pbar.close()

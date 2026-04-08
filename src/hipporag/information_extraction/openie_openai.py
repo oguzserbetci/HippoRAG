@@ -37,14 +37,20 @@ def _extract_ner_from_response(real_response):
 
 
 class OpenIE:
-    def __init__(self, llm_model: CacheOpenAI):
+    def __init__(self, llm_model: CacheOpenAI, global_config):
         # Init prompt template manager
         self.prompt_template_manager = PromptTemplateManager(role_mapping={"system": "system", "user": "user", "assistant": "assistant"})
         self.llm_model = llm_model
+        self.global_config = global_config
 
     def ner(self, chunk_key: str, passage: str) -> NerRawOutput:
         # PREPROCESSING
-        ner_input_message = self.prompt_template_manager.render(name='ner', passage=passage)
+        if self.prompt_template_manager.is_template_name_valid(name='ner_' + self.global_config.dataset):
+            ner_template_name = 'ner_' + self.global_config.dataset
+            logger.info(f"Using dataset-specific NER template: {ner_template_name}")
+        else:
+            ner_template_name = 'ner'
+        ner_input_message = self.prompt_template_manager.render(name=ner_template_name, passage=passage)
         raw_response = ""
         metadata = {}
         try:
@@ -88,12 +94,18 @@ class OpenIE:
             return eval(match.group())["triples"]
 
         # PREPROCESSING
+        if self.prompt_template_manager.is_template_name_valid(name=f'triple_extraction_{self.global_config.dataset}'):
+            triple_expansion_template_name = f'triple_extraction_{self.global_config.dataset}'
+            logger.info(f"Using dataset-specific triple extraction template: {triple_expansion_template_name}")
+        else:
+            triple_expansion_template_name = 'triple_extraction'
+
         messages = self.prompt_template_manager.render(
-            name='triple_extraction',
+            name=triple_expansion_template_name,
             passage=passage,
             named_entity_json=json.dumps({"named_entities": named_entities})
         )
-
+        
         raw_response = ""
         metadata = {}
         try:
@@ -153,6 +165,7 @@ class OpenIE:
         total_prompt_tokens = 0
         total_completion_tokens = 0
         num_cache_hit = 0
+        empty_ner_result = 0
 
         with ThreadPoolExecutor() as executor:
             # Create NER futures for each chunk
@@ -165,6 +178,8 @@ class OpenIE:
             for future in pbar:
                 result = future.result()
                 ner_results_list.append(result)
+                if len(result.unique_entities) == 0:
+                    empty_ner_result += 1
                 # Update metrics based on the metadata from the result
                 metadata = result.metadata
                 total_prompt_tokens += metadata.get('prompt_tokens', 0)
@@ -175,11 +190,12 @@ class OpenIE:
                 pbar.set_postfix({
                     'total_prompt_tokens': total_prompt_tokens,
                     'total_completion_tokens': total_completion_tokens,
-                    'num_cache_hit': num_cache_hit
+                    'num_cache_hit': num_cache_hit,
+                    'empty_ner_result': empty_ner_result,
                 })
 
         triple_results_list = []
-        total_prompt_tokens, total_completion_tokens, num_cache_hit = 0, 0, 0
+        total_prompt_tokens, total_completion_tokens, num_cache_hit, empty_triple_result = 0, 0, 0, 0
         with ThreadPoolExecutor() as executor:
             # Create triple extraction futures for each chunk
             re_futures = {
@@ -198,10 +214,13 @@ class OpenIE:
                 total_completion_tokens += metadata.get('completion_tokens', 0)
                 if metadata.get('cache_hit'):
                     num_cache_hit += 1
+                if len(result.triples) == 0:
+                    empty_triple_result += 1
                 pbar.set_postfix({
                     'total_prompt_tokens': total_prompt_tokens,
                     'total_completion_tokens': total_completion_tokens,
-                    'num_cache_hit': num_cache_hit
+                    'num_cache_hit': num_cache_hit,
+                    'empty_triple_result': empty_triple_result,
                 })
 
         ner_results_dict = {res.chunk_id: res for res in ner_results_list}
